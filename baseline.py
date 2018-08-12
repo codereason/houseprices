@@ -9,7 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score
 from xgboost import XGBRegressor
 import  xgboost as xgb
-
+import lightgbm as lgb
 
 
 def read_data():
@@ -28,40 +28,40 @@ def handle_feature(df):
 
 
 
+train_df = pd.read_csv('train.csv')
+all_data = pd.read_csv('features.csv')
+all_data = all_data.iloc[:,3:]
 
-if __name__ == "__main__":
+print('all_data.describe()',all_data.describe())
 
-    train_df,test_df = read_data()
+ntrain = train_df.shape[0]
 
-    train_df = handle_feature(train_df)
-    test_df = handle_feature(test_df)
-    train_labels = train_df['SalePrice']
-    train, test = train_df.align(test_df, join='inner', axis=1)
-    X_train = train
-    Y_train = train_labels
-    X_test = test
+target = train_df.pop('SalePrice')
 
 
 
+x_train = all_data[:ntrain]
 
-    SEED = 2018
-    regr1 = xgb.XGBRegressor(
-        colsample_bytree=0.2,
-        gamma=0.0,
-        learning_rate=0.01,  # 0.01
-        max_depth=4,  # 4
-        min_child_weight=2,
-        n_estimators=7200,  # 3000
-        reg_alpha=0.9,
-        reg_lambda=0.6,
-        subsample=0.2,
-        random_state=SEED,
-        silent=True)
-    mod = regr1.fit(X_train, Y_train)
-    Y_pred = mod.predict(X_test)
+x_test = all_data[ntrain:]
 
-    my_submission = pd.DataFrame({'Id': test.Id, 'SalePrice': Y_pred})
-    my_submission.to_csv('to_submit_%d.csv' % (1), index=False)
+
+
+model_xgb = xgb.XGBRegressor(colsample_bytree=0.4603, gamma=0.0468,
+                             learning_rate=0.05, max_depth=3,
+                             min_child_weight=1.7817, n_estimators=2200,
+                             reg_alpha=0.4640, reg_lambda=0.8571,
+                             subsample=0.5213, silent=1,
+                              nthread = -1)
+
+model_xgb.fit(x_train, target)
+model_xgb_res = model_xgb.predict(x_test)
+submission = pd.read_csv("sample_submission.csv")
+submission['SalePrice'] = model_xgb_res
+
+submission.to_csv('to_submit_20:19-2018-8-12.csv',index=False)
+
+# my_submission = pd.DataFrame({'Id': test.Id, 'SalePrice': Y_pred_1})
+# my_submission.to_csv('to_submit_%s.csv' % ('lgb'), index=False)
 
 
 
