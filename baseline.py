@@ -15,7 +15,7 @@ from sklearn import svm
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import WhiteKernel, Matern, RBF, DotProduct, RationalQuadratic
 from models import AverageEnsemble, StackingEnsemble, eval_model
-from models import eval_model,rmse
+from models import eval_model,rmse,StackingAveragedModels
 import os
 from scipy.optimize import minimize
 
@@ -188,10 +188,12 @@ def weight_ens2():
     return final_submission,res['x'],res['fun']
 
 
-final_submission_1,weights,scores = weight_ens()
+# final_submission_1,weights,scores = weight_ens()
 # final_submission_2,weights2,scores2 = weight_ens2()
 # final_submission = 0.5 * final_submission_1 + 0.5*final_submission_2
 
 
-final_submission = np.expm1(final_submission_1)
-create_submission(final_submission,scores)
+stacked_averaged_models  = StackingAveragedModels(base_models=(enet, gp, kr),meta_model=lasso)
+
+final_submission = np.expm1(final_submission)
+create_submission(final_submission,scores=None)
