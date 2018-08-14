@@ -29,7 +29,7 @@ def eval_model(model,X,y,n_splits=10):
         score[i] = rmse(y_cv,y.iloc[test_ind])
         i+=1
     mean_rmse = np.mean(score)
-    print('%s :'% model,'mean RMSE is %.5f'%mean_rmse,'std RMSE is ', np.std(score))
+    print('mean RMSE is %.5f'%mean_rmse,'std RMSE is ', np.std(score))
 
     return mean_rmse
 
@@ -103,3 +103,21 @@ class StackingEnsemble(object):
         self.stacker.fit(S_train, y)
         y_pred = self.stacker.predict(S_test)[:]
         return y_pred
+
+
+class SklearnHelper(object):
+    def __init__(self, clf, seed=0, params=None):
+        params['random_state'] = seed
+        self.clf = clf(**params)
+
+    def train(self, x_train, y_train):
+        self.clf.fit(x_train, y_train)
+
+    def predict(self, x):
+        return self.clf.predict(x)
+
+    def fit(self, x, y):
+        return self.clf.fit(x, y)
+
+    def feature_importances(self, x, y):
+        print(self.clf.fit(x, y).feature_importances_)

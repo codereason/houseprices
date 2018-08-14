@@ -24,6 +24,8 @@ from scipy.optimize import minimize
 def create_submission(prediction,score):
     now = datetime.datetime.now()
     sub_file = 'submission_'+str(score)+'_'+str(now.strftime("%Y-%m-%d-%H-%M"))+'.csv'
+    print('='*30)
+    print('=' * 30)
     print ('Creating submission: ', sub_file)
     pd.DataFrame({'Id': test_df['Id'].values, 'SalePrice': prediction}).to_csv(sub_file, index=False)
 
@@ -52,28 +54,43 @@ x_test = all_data[ntrain:]
 
 
 
-SEED = 2018
+SEED = 42
 
+xgb1 = xgb.XGBRegressor(
+                 colsample_bytree=0.2,
+                 gamma=0.0,
+                 learning_rate=0.01,  # 0.01
+                 max_depth=4,  # 4
+                 min_child_weight=1.5,
+                 n_estimators=7200,  # 3000
+                 reg_alpha=0.9,
+                 reg_lambda=0.6,
+                 subsample=0.2,
+                 random_state=SEED,
+                 silent=1)
 
-
-# regr1 = xgb.XGBRegressor()
 best_alpha = 0.00099
-regr2 = Lasso(alpha=best_alpha, max_iter=50000)
+lasso = Lasso(alpha=best_alpha, max_iter=50000)
 
-regr3 = ElasticNet(alpha=0.001)
+enet = ElasticNet(alpha=0.001)
 
-regr4 = KernelRidge()
+kr = KernelRidge(alpha=0.3, kernel='polynomial', degree=2, coef0=1.85)
 
 # regr5 = svm.SVR(kernel='rbf')
 
+kernel = 1.0**2 * Matern(length_scale=1.0,
+                         length_scale_bounds=(1e-05, 100000.0), nu=0.5)
+gp = GaussianProcessRegressor(kernel=kernel, alpha=5e-9,
+                                 optimizer='fmin_l_bfgs_b',
+                                 n_restarts_optimizer=0,
+                                 normalize_y=False,
+                                 copy_X_train=True,
+                                 random_state=SEED)
 
-regr5 = GaussianProcessRegressor()
-
-en_regr = RandomForestRegressor(n_estimators=200, max_features='auto',
+rfr = RandomForestRegressor(n_estimators=200, max_features='auto',
                                 max_depth=12, min_samples_leaf=2)
 
-# lgb_regr = lightgbm.LGBMRegressor(n_estimators=1000)
-
+lgb = lightgbm.LGBMRegressor()
 # eval_model(regr1, x_train, target)
 # # eval_model(model_lasso, x_train, target)
 # eval_model(regr2, x_train,target)
@@ -103,7 +120,44 @@ def weight_ens():
     '''
     split = int(0.8 * ntrain)
 
-    regrs = [ regr2, regr3, regr4,regr5,en_regr, ]
+    regrs = [ lasso,enet,kr,gp,lgb,xgb1,rfr ]
+    predictions = []
+    for regr in regrs:
+
+        predictions.append(regr.fit(x_train[:split], target[:split]).predict(x_train[split:]))
+
+    def ensemble_rmse(weights):
+        final_prediction = 0
+        for weight, prediction in zip(weights, predictions):
+            final_prediction += weight * prediction
+
+        return rmse(target[split:], final_prediction)
+
+    starting_values = [0.5]*len(predictions)
+    cons = ({'type': 'eq', 'fun': lambda w: 1 - sum(w)})
+    # our weights are bound between 0 and 1
+    bounds = [(0, 1)] * len(predictions)
+
+    res = minimize(ensemble_rmse, starting_values, method='SLSQP', bounds=bounds, constraints=cons)
+
+    print('Ensamble Score: {best_score}'.format(best_score=res['fun']))
+    print('Best Weights: {weights}'.format(weights=res['x']))
+    submissions = []
+    for regr in regrs:
+        submissions.append(regr.predict(x_test))
+    final_submission  = 0
+    for weight ,submission in zip(res['x'],submissions):
+        final_submission += weight*submission
+    return final_submission,res['x'],res['fun']
+
+def weight_ens2():
+    '''
+    doing ensemble with weights instead of just averaging them
+    use some basic regressor achieve 0.129
+    '''
+    split = int(0.8 * ntrain)
+
+    regrs = [ lgb,xgb1,rfr  ]
     predictions = []
     for regr in regrs:
 
@@ -134,7 +188,10 @@ def weight_ens():
     return final_submission,res['x'],res['fun']
 
 
+final_submission_1,weights,scores = weight_ens()
+# final_submission_2,weights2,scores2 = weight_ens2()
+# final_submission = 0.5 * final_submission_1 + 0.5*final_submission_2
 
-final_submission,weights,scores = weight_ens()
-final_submission = np.expm1(final_submission)
+
+final_submission = np.expm1(final_submission_1)
 create_submission(final_submission,scores)
