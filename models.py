@@ -122,10 +122,10 @@ class StackingAveragedModels(BaseEstimator, RegressorMixin, TransformerMixin):
         out_of_fold_predictions = np.zeros((X.shape[0], len(self.base_models)))
         for i, model in enumerate(self.base_models):
             for train_index, holdout_index in kfold.split(X, y):
-                instance = clone(model)
-                self.base_models_[i].append(instance)
-                instance.fit(X.iloc[train_index], y.iloc[train_index])
-                y_pred = instance.predict(X.iloc[holdout_index])
+
+                self.base_models_[i].append(model)
+                model.fit(X.iloc[train_index], y.iloc[train_index])
+                y_pred = model.predict(X.iloc[holdout_index])
                 out_of_fold_predictions[holdout_index, i] = y_pred
 
         # Now train the cloned  meta-model using the out-of-fold predictions as new feature
