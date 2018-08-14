@@ -15,7 +15,7 @@ def rmse(y_true,y_pred):
 
 
 
-def eval_model(model,X,y,n_splits=5):
+def eval_model(model,X,y,n_splits=10):
 
     score = np.zeros(n_splits)
     i = 0
@@ -33,7 +33,23 @@ def eval_model(model,X,y,n_splits=5):
 
     return mean_rmse
 
+def eval_submodels(models, x, y):
+    print('Cross_validation..')
+    n_splits_val = 10
+    kf = KFold(n_splits=n_splits_val, shuffle=False)
+    for m_i, model in enumerate(models.regressors):
+        rmse_buf = np.empty(n_splits_val)
+        idx = 0
+        for train, test in kf.split(x):
+            model.fit(x.iloc[train], y.iloc[train])
+            y_cv = model.predict(x.iloc[test])
+            rmse_buf[idx] = rmse(y.iloc[test], y_cv)
+            # print('Interation #' + str(idx) + ': RMSE = %.5f' % rmse_buf[idx])
+            idx += 1
 
+        mean_rmse = np.mean(rmse_buf)
+        print('Model #' + str(m_i) + ': mean RMSE = %.5f' % mean_rmse + \
+              ' +/- %.5f' % np.std(rmse_buf))
 
 
 
@@ -54,6 +70,9 @@ class AverageEnsemble(BaseEstimator, RegressorMixin):
         res = np.mean(self.predictions_, axis=0)
 
         return res
+
+
+
 
 class StackingEnsemble(object):
     def __init__(self, n_splits, stacker, base_models):
