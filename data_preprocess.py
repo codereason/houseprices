@@ -14,7 +14,23 @@ from sklearn import ensemble, tree, linear_model
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.utils import shuffle
+import datetime
 
+
+
+
+
+def read_data():
+    train_df = pd.read_csv('train.csv')
+    test_df = pd.read_csv('test.csv')
+    return train_df, test_df
+
+
+def handle_feature(df):
+    df = pd.get_dummies(df)
+    print(' Features shape: ', df.shape)
+    df = df.apply(lambda x: x.fillna(x.median()),axis=0)
+    return df
 def drop_col(df):
     pct_null = df.isnull().sum() / len(df)
     missing_features = pct_null[pct_null > 0.30].index
@@ -34,6 +50,7 @@ def fill_col(df):
     for column in cate_columns:
         df[column] = df[column].fillna('NaN')
     return df
+
 def get_score(prediction, lables):
     print('R2: {}'.format(r2_score(prediction, lables)))
     print('RMSE: {}'.format(np.sqrt(mean_squared_error(prediction, lables))))
